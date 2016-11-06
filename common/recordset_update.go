@@ -148,21 +148,21 @@ func (ru *RecordsetUpdate) Apply(diff *RecordsetDiff, rul RecordsetUpdaterByList
     }()
 
     for _, r := range diff.New {
-        ruLog.Infof(ru.ctx, "INSERT: [%s]", r)
+        ruLog.Infof(ru.ctx, "INSERT [%s]: [%s]", r.Id(), r)
         if err := rul.ProcessInsert(r); err != nil {
             log.Panic(err)
         }
     }
 
     for _, r := range diff.Updated {
-        ruLog.Infof(ru.ctx, "UPDATE: [%s]", r)
+        ruLog.Infof(ru.ctx, "UPDATE [%s]: [%s]", r.Id(), r)
         if err := rul.ProcessUpdate(r); err != nil {
             log.Panic(err)
         }
     }
 
     for _, r := range diff.Deleted {
-        ruLog.Infof(ru.ctx, "DELETE: [%s]", r)
+        ruLog.Infof(ru.ctx, "DELETE [%s]: [%s]", r.Id(), r)
         if err := rul.ProcessDelete(r); err != nil {
             log.Panic(err)
         }

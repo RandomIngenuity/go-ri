@@ -5,6 +5,7 @@ import (
     "strconv"
     "time"
     "fmt"
+    "strings"
 
     "github.com/dsoprea/go-logging"
 )
@@ -25,6 +26,35 @@ func GetConfigValueStringWithDefault(name string, defaultValue string) string {
     }
 
     return value
+}
+
+func GetConfigValueStringSlice(name string, separator string, forceToLower bool) []string {
+    values := GetConfigValueStringSliceWithDefault(name, separator, forceToLower, []string {})
+
+    if len(values) == 0 {
+        log.Panic(fmt.Errorf("string-slice configuration value not found: [%s]", name))
+    }
+    
+    if forceToLower == true {
+        for i, v := range values {
+            values[i] = strings.ToLower(v)
+        }
+    }
+
+    return values
+}
+
+func GetConfigValueStringSliceWithDefault(name string, separator string, forceToLower bool, defaultValues []string) []string {
+    value := os.Getenv(name)
+    var values []string
+    
+    if value == "" {
+        values = defaultValues
+    } else {
+        values = strings.Split(value, separator)
+    }
+
+    return values
 }
 
 func GetConfigValueInt32(name string) int32 {
