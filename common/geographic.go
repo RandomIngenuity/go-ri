@@ -11,7 +11,14 @@ import (
 
 // Constants
 const (
-    MaxGeohashPrecision = 12
+    // Maximum allowed precision (also, number of characters) in a Geohash.
+    GeohashMaxPrecision = 12
+
+    // The precision to use when encoding when none is given.
+    GeohashDefaultEncodePrecision = 12
+
+    // The precision to use when checking for redundancy/duplicates.
+    GeohashIdenticalMatchPrecision = 11
 )
 
 func GetBoundingHashPrefixForBox(ob *geohash.Box, center *appengine.GeoPoint) (hash string, err error) {
@@ -21,7 +28,7 @@ func GetBoundingHashPrefixForBox(ob *geohash.Box, center *appengine.GeoPoint) (h
         }
     }()
 
-    for precision := MaxGeohashPrecision; precision > 0 ; precision-- {
+    for precision := GeohashMaxPrecision; precision > 0 ; precision-- {
         h, ib := geohash.Encode(center.Lat, center.Lng, precision)
         
         // Loop as long as any part of the inner geohash box remains inside the 
@@ -40,14 +47,18 @@ func GetBoundingHashPrefixForBox(ob *geohash.Box, center *appengine.GeoPoint) (h
     return "", err
 }
 
-func EncodeCoordinatesToGeohash(latitude, longitude float64) (hash string, err error) {
+func EncodeCoordinatesToGeohash(latitude, longitude float64, precision int) (hash string, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = state.(error)
         }
     }()
 
-    hash, _ = geohash.Encode(latitude, longitude, MaxGeohashPrecision)
+    if precision == 0 {
+        precision = GeohashDefaultEncodePrecision
+    }
+
+    hash, _ = geohash.Encode(latitude, longitude, precision)
     isValid := false
 
     for _, char := range hash {
