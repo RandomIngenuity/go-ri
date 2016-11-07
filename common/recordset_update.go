@@ -84,6 +84,8 @@ func (ru *RecordsetUpdate) Diff(rd RecordsetDatasource) (diff *RecordsetDiff, er
             switch t := x.(type) {
                 case RecordsetRecord:
                     r := x.(RecordsetRecord)
+                    //ruLog.Debugf(ru.ctx, "READ TARGET: [%s] [%s]", r.Id(), r)
+
                     stored[r.Id()] = r
                 case error:
                     log.Panic(x)
@@ -112,12 +114,17 @@ func (ru *RecordsetUpdate) Diff(rd RecordsetDatasource) (diff *RecordsetDiff, er
             switch t := x.(type) {
                 case RecordsetRecord:
                     r := x.(RecordsetRecord)
+                    //ruLog.Debugf(ru.ctx, "READ SOURCE: [%s] [%s]", r.Id(), r)
 
                     if olderRecord, exists := stored[r.Id()]; exists == false {
                         diff.New = append(diff.New, r)
-                    } else if r.IsUnchanged(olderRecord) == false {
-                        diff.Updated = append(diff.Updated, r)
                     } else {
+                        // The ID was there before and is there now.
+
+                        if r.IsUnchanged(olderRecord) == false {
+                            diff.Updated = append(diff.Updated, r)
+                        }
+
                         delete(stored, r.Id())
                     }
                 case error:
