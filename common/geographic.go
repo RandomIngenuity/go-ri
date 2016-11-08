@@ -18,7 +18,8 @@ const (
     GeohashDefaultEncodePrecision = 12
 
     // The precision to use when checking for redundancy/duplicates.
-    GeohashIdenticalMatchPrecision = 11
+// TODO(dustin): !! Make sure that this is sufficient for two similar locations near the equator.
+    GeohashIdenticalMatchPrecision = 8
 )
 
 func GetBoundingHashPrefixForBox(ob *geohash.Box, center *appengine.GeoPoint) (hash string, err error) {
