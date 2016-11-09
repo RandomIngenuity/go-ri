@@ -15,7 +15,7 @@ const (
     GeohashMaxPrecision = 12
 
     // The precision to use when encoding when none is given.
-    GeohashDefaultEncodePrecision = 12
+    GeohashDefaultEncodePrecision = GeohashMaxPrecision
 
     // The precision to use when checking for redundancy/duplicates.
 // TODO(dustin): !! Make sure that this is sufficient for two similar locations near the equator.
