@@ -22,7 +22,9 @@ const (
     GeohashIdenticalMatchPrecision = 8
 )
 
-func GetBoundingHashPrefixForBox(ob *geohash.Box, center *appengine.GeoPoint) (hash string, err error) {
+// GetBoundingGeohashPrefixForBox Return a Geohash at the right precision to 
+// describe a the given box.
+func GetBoundingGeohashPrefixForBox(ob *geohash.Box, center *appengine.GeoPoint) (hash string, err error) {
     defer func() {
         if state := recover(); state != nil {
             err = state.(error)
@@ -48,6 +50,7 @@ func GetBoundingHashPrefixForBox(ob *geohash.Box, center *appengine.GeoPoint) (h
     return "", err
 }
 
+// EncodeCoordinatesToGeohash Convert the coordinate pair to a geohash.
 func EncodeCoordinatesToGeohash(latitude, longitude float64, precision int) (hash string, err error) {
     defer func() {
         if state := recover(); state != nil {
