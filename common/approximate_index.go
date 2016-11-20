@@ -37,6 +37,9 @@ type ApproximateIndexProvider interface {
     // key. It must be inclusive of the first and exclusive of the second.
     GroupRange(groupId interface{}) (from, to interface{}, err error)
 
+    // AreGroupIdsEqual Return whether the two group-IDs are equal.
+    AreGroupIdsEqual(a, b interface{}) bool
+
     // String Return a description of the provider.
     String() string
 }
@@ -58,41 +61,55 @@ func NewApproximateIndex(ctx context.Context, provider ApproximateIndexProvider,
         provider: provider,
         groups: groups,
         maxGroups: maxGroups,
-        mru: make([]interface{}, maxGroups),
+        mru: make([]interface{}, 0, maxGroups),
     }
 }
 
 // updateMru Limit the data that we keep based on usage order.
-func (ai *ApproximateIndex) updateMru(newGroupId interface{}) {
-    aiLog.Debugf(ai.ctx, "Update: [%s] [%v]", ai.provider.String(), newGroupId)
-
-    if ai.maxGroups == 0 {
-        return
-    }
+func (ai *ApproximateIndex) updateMru(newGroupId interface{}) (err error) {
+    defer func() {
+        if state := recover(); state != nil {
+            err = state.(error)
+        }
+    }()
 
     len_ := len(ai.mru)
+    
+    p := ai.provider.String()
+    aiLog.Debugf(ai.ctx, "Update: [%s] G=[%v] MAX=(%d) CUR=(%d)", p, newGroupId, ai.maxGroups, len_)
+
+    if ai.maxGroups == 0 {
+        return nil
+    }
 
     // Update MRU.
     doPrune := len_ == ai.maxGroups
-    oldestGroupId := ai.mru[len_ - 1]
 
-    ai.mru = append([]interface{} { newGroupId }, ai.mru[1:len_]...)
+    var oldestGroupId interface{}
+    if len_ > 0 {
+        oldestGroupId = ai.mru[len_ - 1]
+        ai.mru = append([]interface{} { newGroupId }, ai.mru[1:len_ - 1]...)
+    } else {
+        ai.mru = []interface{} { newGroupId }
+    }
 
     // Nothing was shifted off the end.
     if doPrune == false {
-        return
+        return nil
     }
 
     // The group that was shifted off the end happened to be the one that was 
     // most recent used. False positive (it's a happy day).
-    if oldestGroupId == newGroupId {
-        return
+    if ai.provider.AreGroupIdsEqual(oldestGroupId, newGroupId) == true {
+        return nil
     }
 
-    aiLog.Debugf(ai.ctx, "Forgetting: [%s] [%v]", ai.provider.String(), oldestGroupId)
+    aiLog.Debugf(ai.ctx, "Forgetting: [%s] [%v]", p, oldestGroupId)
 
     // Prune the group that has aged-out from the dataset.
     delete(ai.groups, oldestGroupId)
+
+    return nil
 }
 
 // Find Either return a match item or the next smallest one.
@@ -100,26 +117,36 @@ func (ai *ApproximateIndex) Find(key interface{}) (aie ApproximateIndexEntry, er
     defer func() {
         if state := recover(); state != nil {
             err = state.(error)
+            aiLog.Errorf(ai.ctx, nil, "Find failed: [%v]", key)
         }
     }()
 
+    aiLog.Debugf(ai.ctx, "Find: [%v]", key)
     providerDescription := ai.provider.String()
 
     groupId := ai.provider.Group(key)
+    aiLog.Debugf(ai.ctx, "Resolved key to a group: [%s] => [%s]", key, groupId)
 
     list, isLoaded := ai.groups[groupId]
     if isLoaded == false {
-        from, to, err := ai.provider.GroupRange(groupId)
-        log.Panic(err)
+        aiLog.Debugf(ai.ctx, "Fault. We need data for group: [%s] [%s]", providerDescription, groupId)
 
-        aiLog.Debugf(ai.ctx, "Loading data: [%s] [%s] [%v] FROM=[%v] TO=[%v]", providerDescription, key, groupId, from, to)
+        from, to, err := ai.provider.GroupRange(groupId)
+        log.PanicIf(err)
+
+        aiLog.Debugf(ai.ctx, "Loading data: [%s] K=[%s] G=[%v] FROM=[%v] TO=[%v]", providerDescription, key, groupId, from, to)
 
         if list, err = ai.provider.ReadEntries(from, to); err != nil {
             log.Panic(err)
         } else {
-            ai.updateMru(groupId)
+            if err := ai.updateMru(groupId); err != nil {
+                log.Panic(err)
+            }
+
             ai.groups[groupId] = list
         }
+
+        aiLog.Debugf(ai.ctx, "Records returned: [%s] (%d)", providerDescription, len(list))
     } else {
         aiLog.Debugf(ai.ctx, "Data already available: [%s] [%v] [%v]", providerDescription, key, groupId)
     }
