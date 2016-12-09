@@ -9,6 +9,12 @@ import (
     "github.com/dsoprea/go-logging"
 )
 
+// Format names
+const (
+    FormatGeoJson = "geojson"
+    FormatKml = "kml"
+)
+
 // Constants
 const (
     // Maximum allowed precision (also, number of characters) in a Geohash.
