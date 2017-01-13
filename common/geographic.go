@@ -11,7 +11,7 @@ import (
 
 // Format names
 const (
-    FormatGeoJson = "geojson"
+    FormatGeoJson = "json"
     FormatKml = "kml"
 )
 
