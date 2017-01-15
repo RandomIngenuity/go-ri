@@ -35,11 +35,15 @@ type RecordsetDatasource interface {
     String() string
 }
 
-type RecordsetUpdaterByList interface {
+type RecordsetUpdaterByListNoDelete interface {
     ProcessInsert(record RecordsetRecord) (err error)
     ProcessUpdate(record RecordsetRecord) (err error)
-    ProcessDelete(record RecordsetRecord) (err error)
     Flush() (err error)
+}
+
+type RecordsetUpdaterByListWithDelete interface {
+    RecordsetUpdaterByListNoDelete
+    ProcessDelete(record RecordsetRecord) (err error)
 }
 
 type RecordsetDiff struct {
@@ -146,7 +150,7 @@ func (ru *RecordsetUpdate) Diff(rd RecordsetDatasource) (diff *RecordsetDiff, er
     return diff, nil
 }
 
-func (ru *RecordsetUpdate) Apply(diff *RecordsetDiff, rul RecordsetUpdaterByList) (err error) {
+func (ru *RecordsetUpdate) Apply(diff *RecordsetDiff, rulUnknown interface{}) (err error) {
     defer func() {
         if r := recover(); r != nil {
             err = r.(error)
@@ -154,28 +158,43 @@ func (ru *RecordsetUpdate) Apply(diff *RecordsetDiff, rul RecordsetUpdaterByList
         }
     }()
 
+    rulnd := rulUnknown.(RecordsetUpdaterByListNoDelete)
+
+    // The updater we were given only optionally has to support deleting. 
+
+    var ruld RecordsetUpdaterByListWithDelete
+
+    switch rulUnknown.(type) {
+    case RecordsetUpdaterByListWithDelete:
+        ruld = rulUnknown.(RecordsetUpdaterByListWithDelete)
+    }
+
     for _, r := range diff.New {
         ruLog.Infof(ru.ctx, "INSERT [%s]: [%s]", r.Id(), r)
-        if err := rul.ProcessInsert(r); err != nil {
+        if err := rulnd.ProcessInsert(r); err != nil {
             log.Panic(err)
         }
     }
 
     for _, r := range diff.Updated {
         ruLog.Infof(ru.ctx, "UPDATE [%s]: [%s]", r.Id(), r)
-        if err := rul.ProcessUpdate(r); err != nil {
+        if err := rulnd.ProcessUpdate(r); err != nil {
             log.Panic(err)
         }
     }
 
-    for _, r := range diff.Deleted {
-        ruLog.Infof(ru.ctx, "DELETE [%s]: [%s]", r.Id(), r)
-        if err := rul.ProcessDelete(r); err != nil {
-            log.Panic(err)
+    if ruld == nil {
+        ruLog.Warningf(ru.ctx, "This preload will not do any deletes: [%s]", rulnd)
+    } else {
+        for _, r := range diff.Deleted {
+            ruLog.Infof(ru.ctx, "DELETE [%s]: [%s]", r.Id(), r)
+            if err := ruld.ProcessDelete(r); err != nil {
+                log.Panic(err)
+            }
         }
     }
 
-    if err := rul.Flush(); err != nil {
+    if err := rulnd.Flush(); err != nil {
         log.Panic(err)
     }
 
