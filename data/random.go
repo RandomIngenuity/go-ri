@@ -1,11 +1,12 @@
 package ridata
 
 import (
-    "crypto/rand"
-    "crypto/sha256"
-
     "fmt"
     "strings"
+    "time"
+
+    "crypto/sha256"
+    "math/rand"
 
     "github.com/dsoprea/go-logging"
 )
@@ -35,12 +36,20 @@ func RandomHexString(length int) string {
 
 // GetLargeRandomHexString returns a very unique, long string that is good as a
 // one-time password or sharing key.
-func GetLargeRandomHexString() string {
+func LargeRandomHexString() string {
     return RandomHexString(LargeUuidLength)
 }
 
 // GetMediumRandomHexString returns a random-string that can usually be used as
 // a reusable identifier.
-func GetMediumRandomHexString() string {
+func MediumRandomHexString() string {
     return RandomHexString(MediumUuidLength)
+}
+
+func RandomUint64() uint64 {
+    return rand.Uint64()
+}
+
+func init() {
+    rand.Seed(time.Now().UTC().UnixNano())
 }
